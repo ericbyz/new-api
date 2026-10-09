@@ -1030,17 +1030,25 @@ func TestDoubaoSeedanceSmartDuration(t *testing.T) {
 	assert.Equal(t, "720p", arkMetadata["resolution"])
 	assert.Nil(t, arkMetadata["auto_duration"])
 
+	// The reservation uses the resolution the request submitted (metadata is
+	// nested one level deeper on the native route), not the 1080p default.
+	assert.Equal(t, "720p", facts["resolution"])
+
 	// Smart duration reserves the same 30s quota as an otherwise identical
 	// native request asking for an explicit 30s duration; the final bill is
 	// settled from actual usage on completion.
 	explicitResolved := decodeDoubaoNativeVideo(t, registry, plugin, map[string]any{
-		"model":    model,
-		"prompt":   "仙侠风",
-		"content":  []any{map[string]any{"type": "video_url", "video_url": map[string]any{"url": "https://cdn.example/reference.mp4"}, "role": "reference_video"}},
-		"metadata": map[string]any{"resolution": "720p"},
-		"duration": float64(30),
+		"model":  model,
+		"prompt": "仙侠风",
+		"content": []any{map[string]any{
+			"type":      "video_url",
+			"video_url": map[string]any{"url": "https://cdn.example/reference.mp4"},
+			"role":      "reference_video",
+		}},
+		"metadata": map[string]any{"resolution": "720p", "duration": float64(30)},
 	})
 	validateErr, _, explicitFacts := runDoubaoVideo(t, plugin, explicitResolved["requestBody"].(map[string]any))
 	require.Nil(t, validateErr)
+	assert.Equal(t, "720p", explicitFacts["resolution"])
 	assert.Equal(t, explicitFacts["tokens"], facts["tokens"], "smart duration should reserve 30s of tokens")
 }

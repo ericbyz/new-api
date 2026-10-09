@@ -402,13 +402,23 @@ function videoProfile(ctx) {
   return DEFAULT_VIDEO_PROFILE;
 }
 
+// Native requests wrap the whole Ark body as requestBody.metadata, so the
+// user's metadata fields sit one level deeper than on the protocol routes.
+// Returns the user-visible metadata either way.
+function effectiveMetadata(req) {
+  const metadata = req.metadata || {};
+  const nested = metadata.metadata;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) return Object.assign({}, metadata, nested);
+  return metadata;
+}
+
 // Resolution tier the reservation is estimated at: the requested tier or the
 // tier of a WxH size, rejecting tiers the model does not offer. A request that
 // leaves the resolution to Ark reserves the model's highest tier up to 1080p;
 // completion overlays the delivered resolution.
 function videoResolution(ctx) {
   const req = ctx.requestBody || {};
-  const metadata = req.metadata || {};
+  const metadata = effectiveMetadata(req);
   const profile = videoProfile(ctx);
   const raw = trimmed(metadata.resolution || req.size).toLowerCase();
   const recognized = SEEDANCE_RESOLUTIONS.includes(raw) || raw.replace("*", "x").split("x").length === 2;
@@ -870,7 +880,7 @@ export function extractUsage(ctx) {
     return facts;
   }
   const req = ctx.requestBody || {};
-  const metadata = req.metadata || {};
+  const metadata = effectiveMetadata(req);
   if (ctx.usagePurpose === "billing_ratios") {
     const ratio = videoInputRatio(ctx.upstreamModel || ctx.model, metadata.resolution, metadata.content);
     return ratio === 1 ? null : { video_input_ratio: ratio };
